@@ -11,38 +11,58 @@ let servicePercentPrice;
 let service1;
 let service2;
 
-const isNumber = function (num) {
-  return !isNaN(parseFloat(num)) && isFinite(num);
+// Функция, которая запрашивает у пользователя число,
+// убирает пробелы, проверяет корректность и возвращает именно число.
+const getValidNumber = function (message) {
+  let value;
+
+  do {
+    value = prompt(message);
+    if (value === null) return null; // если пользователь нажал "Отмена"
+
+    value = value.trim(); // удаляем пробелы
+  } while (value === "" || isNaN(value)); // повторяем, пока не введено число
+
+  return Number(value); // возвращаем число, не строку
 };
 
+// Функция, задающая основные вопросы пользователю
 const asking = function () {
   title = prompt("Как называется ваш проект?", "Калькулятор верстки");
   screens = prompt(
     "Какие типы экранов нужно разработать? (например: Простые, Сложные, Интерактивные)"
   );
-  screenPrice = prompt("Сколько будет стоить данная работа?");
 
-  while (!isNumber(screenPrice)) {
-    screenPrice = prompt("Сколько будет стоить данная работа?");
+  screenPrice = getValidNumber("Сколько будет стоить данная работа?");
+
+  if (screenPrice === null) {
+    alert("Ввод отменён пользователем.");
+    return;
   }
 
   adaptive = confirm("Нужен ли адаптив на сайте?");
 };
 
+// Функция, которая запрашивает доп. услуги и их стоимость
 const getAllServicePrices = function () {
   let sum = 0;
 
   for (let i = 0; i < 2; i++) {
-    if (i === 0) {
-      service1 = prompt("Какой дополнительный тип услуги нужен?");
-    } else if (i === 1) {
-      service2 = prompt("Какой дополнительный тип услуги нужен?");
+    let service = prompt("Какой дополнительный тип услуги нужен?");
+    let price = getValidNumber("Сколько это будет стоить?");
+
+    if (price === null) {
+      alert("Ввод отменён пользователем.");
+      return;
     }
 
-    sum += +prompt("Сколько это будет стоить?");
+    sum += price;
+
+    if (i === 0) service1 = service;
+    else service2 = service;
   }
+
   return sum;
-  // return servicePrice1 + servicePrice2;
 };
 
 const showTypeOf = function (variable) {
