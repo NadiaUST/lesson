@@ -1,72 +1,168 @@
-// 1. Восстановить порядок книг
-const books = document.querySelectorAll(".book");
-const booksContainer = document.querySelector(".books");
+"use strict";
 
-// порядок книг: 1, 2, 3, 4, 5, 6
-const booksOrder = [1, 0, 4, 3, 5, 2];
-booksOrder.forEach((i) => booksContainer.append(books[i]));
+const title = document.getElementsByTagName("h1")[0];
 
-// 2. Поменять фон
-document.body.style.backgroundImage = 'url("./image/you-dont-know-js.jpg")';
+const buttonPlus = document.querySelector(".screen-btn");
 
-// 3. Исправить заголовок в книге 3
-const book3 = books[4]; // "Книга 3. this и Прототипы Объектов"
-book3.querySelector("h2 a").textContent = "Книга 3. this и Прототипы Объектов";
+const otherItemsPercent = document.querySelectorAll(".other-items.percent");
+const otherItemsNumber = document.querySelectorAll(".other-items.number");
 
-// 4. Удалить рекламу
-document.querySelector(".adv").remove();
+const inputRange = document.querySelector(".rollback input");
+const inputRangeValue = document.querySelector(".rollback .range-value");
 
-// 5. Восстановить порядок глав во 2-й книге
-const book2 = books[0];
-const list2 = book2.querySelector("ul");
-const chapters2 = list2.querySelectorAll("li");
+const startBtn = document.getElementsByClassName("handler_btn")[0];
+const resetBtn = document.getElementsByClassName("handler_btn")[1];
 
-// Правильный порядок:
-const order2 = [
-  0, // Введение
-  1, // Предисловие
-  3, // Глава 1
-  6, // Глава 2
-  8, // Глава 3
-  4, // Глава 4
-  5, // Глава 5
-  7, // Приложение A
-  9, // Приложение B
-  2, // Приложение C
-  10, // Приложение D
-];
+const total = document.getElementsByClassName("total-input")[0];
+const totalCount = document.getElementsByClassName("total-input")[1];
+const totalCountOther = document.getElementsByClassName("total-input")[2];
+const totalFullCount = document.getElementsByClassName("total-input")[3];
+const totalCountRollback = document.getElementsByClassName("total-input")[4];
 
-order2.forEach((i) => list2.append(chapters2[i]));
+let screens = document.querySelectorAll(".screen");
 
-// 5. Восстановить порядок глав в 5-й книге
-const book5 = books[5];
-const list5 = book5.querySelector("ul");
-const chapters5 = list5.querySelectorAll("li");
+const appData = {
+  title: "",
+  screens: [],
+  screenPrice: 0,
+  adaptive: true,
+  rollback: 10,
+  servicePricesPercent: 0,
+  servicePricesNumber: 0,
+  fullPrice: 0,
+  servicePercentPrice: 0,
+  servicesPercent: {},
+  servicesNumber: {},
 
-// Правильный порядок:
-const order5 = [
-  0, // Введение
-  1, // Предисловие
-  9, // Глава 1
-  3, // Глава 2
-  4, // Глава 3
-  2, // Глава 4
-  6, // Глава 5
-  7, // Глава 6
-  5, // Приложение A
-  8, // Приложение B
-  10, // Приложение C
-];
+  init: function () {
+    appData.addTitle();
+    startBtn.addEventListener("click", appData.start);
+    buttonPlus.addEventListener("click", appData.addScreenBlock);
 
-order5.forEach((i) => list5.append(chapters5[i]));
+    inputRange.addEventListener("input", function () {
+      inputRangeValue.textContent = inputRange.value + "%";
+      appData.rollback = +inputRange.value;
+    });
+  },
 
-// 6. В 6-й книге добавить главу 8
-const book6 = books[2];
-const list6 = book6.querySelector("ul");
-const chapters6 = list6.querySelectorAll("li");
+  addTitle: function () {
+    document.title = title.textContent;
+  },
 
-const newChapter = document.createElement("li");
-newChapter.textContent = "Глава 8: За пределами ES6";
+  start: function () {
+    if (!appData.checkScreens()) {
+      alert("Заполните все экраны");
+      return;
+    }
 
-// вставляем перед последним элементом (Приложение A: Благодарности!)
-list6.insertBefore(newChapter, chapters6[chapters6.length - 1]);
+    appData.reset();
+    appData.addScreens();
+    appData.addServices();
+    appData.addPrices();
+    appData.showResult();
+  },
+
+  checkScreens: function () {
+    screens = document.querySelectorAll(".screen");
+
+    return [...screens].every((screen) => {
+      const select = screen.querySelector("select");
+      const input = screen.querySelector("input");
+
+      return select.value !== "" && input.value !== "" && +input.value > 0;
+    });
+  },
+
+  reset: function () {
+    appData.screens = [];
+    appData.screenPrice = 0;
+    appData.servicePricesPercent = 0;
+    appData.servicePricesNumber = 0;
+    appData.fullPrice = 0;
+    appData.servicePercentPrice = 0;
+    appData.servicesPercent = {};
+    appData.servicesNumber = {};
+  },
+
+  showResult: function () {
+    total.value = appData.screenPrice;
+    totalCountOther.value =
+      appData.servicePricesPercent + appData.servicePricesNumber;
+    totalFullCount.value = appData.fullPrice;
+    totalCountRollback.value = appData.servicePercentPrice;
+  },
+
+  addScreens: function () {
+    screens = document.querySelectorAll(".screen");
+
+    screens.forEach(function (screen, index) {
+      const select = screen.querySelector("select");
+      const input = screen.querySelector("input");
+      const selectName = select.options[select.selectedIndex].textContent;
+
+      appData.screens.push({
+        id: index,
+        name: selectName,
+        price: +select.value * +input.value,
+        count: +input.value,
+      });
+    });
+  },
+
+  addServices: function () {
+    otherItemsPercent.forEach(function (item) {
+      const check = item.querySelector("input[type=checkbox]");
+      const label = item.querySelector("label");
+      const input = item.querySelector("input[type=text]");
+
+      if (check.checked && input.value !== "") {
+        appData.servicesPercent[label.textContent] = +input.value;
+      }
+    });
+
+    otherItemsNumber.forEach(function (item) {
+      const check = item.querySelector("input[type=checkbox]");
+      const label = item.querySelector("label");
+      const input = item.querySelector("input[type=text]");
+
+      if (check.checked && input.value !== "") {
+        appData.servicesNumber[label.textContent] = +input.value;
+      }
+    });
+  },
+
+  addScreenBlock: function () {
+    const cloneScreen = screens[0].cloneNode(true);
+    screens[screens.length - 1].after(cloneScreen);
+  },
+
+  addPrices: function () {
+    let totalScreensCount = 0;
+
+    for (let screen of appData.screens) {
+      appData.screenPrice += screen.price;
+      totalScreensCount += screen.count;
+    }
+
+    for (let key in appData.servicesNumber) {
+      appData.servicePricesNumber += appData.servicesNumber[key];
+    }
+
+    for (let key in appData.servicesPercent) {
+      appData.servicePricesPercent +=
+        appData.screenPrice * (appData.servicesPercent[key] / 100);
+    }
+
+    appData.fullPrice =
+      appData.screenPrice +
+      appData.servicePricesNumber +
+      appData.servicePricesPercent;
+
+    appData.servicePercentPrice =
+      appData.fullPrice - appData.fullPrice * (appData.rollback / 100);
+
+    totalCount.value = totalScreensCount;
+  },
+};
+
+appData.init();
