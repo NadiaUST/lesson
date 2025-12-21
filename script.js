@@ -1,5 +1,6 @@
 "use strict";
 
+//DOM
 const title = document.querySelector("h1");
 const buttonPlus = document.querySelector(".screen-btn");
 
@@ -10,10 +11,13 @@ const inputRange = document.querySelector(".rollback input");
 const inputRangeValue = document.querySelector(".rollback .range-value");
 
 const startBtn = document.querySelectorAll(".handler_btn")[0];
-
 let resetBtn = document.getElementById("reset");
 
 const leftSide = document.querySelector(".main-controls") || document;
+
+// CMS блоки по заданию
+const cmsOpen = document.getElementById("cms-open"); // input[type=checkbox]#cms-open
+const cmsVariants = document.querySelector(".hidden-cms-variants"); // блок который показываем flex
 
 // результаты
 const total = document.getElementsByClassName("total-input")[0];
@@ -22,7 +26,6 @@ const totalCountOther = document.getElementsByClassName("total-input")[2];
 const totalFullCount = document.getElementsByClassName("total-input")[3];
 const totalCountRollback = document.getElementsByClassName("total-input")[4];
 
-// ===== helpers (СТРЕЛОЧНЫЕ) =====
 const getScreens = () => document.querySelectorAll(".screen");
 
 const setDisabledLeft = (isDisabled) => {
@@ -66,21 +69,64 @@ const ensureResetButton = () => {
   resetBtn.style.display = "none";
 
   startBtn.after(resetBtn);
-
   return resetBtn;
 };
 
-// ===== APP =====
+// показать/скрыть cms variants строго через flex/none
+const setCmsVariantsVisible = (isVisible) => {
+  if (!cmsVariants) return;
+  cmsVariants.style.display = isVisible ? "flex" : "none";
+};
+
+// внутри cmsVariants найти main-controls__input и показать/скрыть
+const setCmsOtherInputVisible = (isVisible) => {
+  if (!cmsVariants) return;
+  const otherInputBlock = cmsVariants.querySelector(".main-controls__input");
+  if (!otherInputBlock) return;
+  otherInputBlock.style.display = isVisible ? "block" : "none";
+};
+
+// находим select с option value="other"
+const getCmsSelect = () => {
+  if (!cmsVariants) return null;
+  // ищем select который содержит option[value="other"]
+  const selects = cmsVariants.querySelectorAll("select");
+  const found = [...selects].find((sel) =>
+    sel.querySelector('option[value="other"]')
+  );
+  return found || null;
+};
+
+// посчитать сумму процентов из чекбоксов внутри cmsVariants
+const getCmsPercentSum = () => {
+  if (!cmsVariants) return 0;
+  const checks = cmsVariants.querySelectorAll('input[type="checkbox"]:checked');
+  let sum = 0;
+  checks.forEach((ch) => {
+    const v = parseFloat(ch.value);
+    if (Number.isFinite(v)) sum += v;
+  });
+  return sum;
+};
+
+//APP
 const appData = {
   title: "",
   screens: [],
   screenPrice: 0,
   adaptive: true,
   rollback: 10,
+
   servicePricesPercent: 0,
   servicePricesNumber: 0,
+
+  // CMS
+  cmsPercentSum: 0,
+  cmsPrice: 0,
+
   fullPrice: 0,
   servicePercentPrice: 0,
+
   servicesPercent: {},
   servicesNumber: {},
 
@@ -98,8 +144,32 @@ const appData = {
       this.rollback = +inputRange.value;
     });
 
-    // на старте reset скрыта
+    //listeners
+    if (cmsOpen) {
+      cmsOpen.addEventListener("change", () => {
+        setCmsVariantsVisible(cmsOpen.checked);
+
+        // при открытии — синхронизирую "Другое"
+        const cmsSelect = getCmsSelect();
+        if (cmsSelect) {
+          setCmsOtherInputVisible(cmsSelect.value === "other");
+        } else {
+          setCmsOtherInputVisible(false);
+        }
+      });
+    }
+
+    const cmsSelect = getCmsSelect();
+    if (cmsSelect) {
+      cmsSelect.addEventListener("change", () => {
+        setCmsOtherInputVisible(cmsSelect.value === "other");
+      });
+    }
+
+    // initial state
     rb.style.display = "none";
+    setCmsVariantsVisible(false);
+    setCmsOtherInputVisible(false);
   },
 
   addTitle: function () {
@@ -117,6 +187,8 @@ const appData = {
     this.addScreens();
     this.addServices();
     this.addPrices();
+    this.addCmsPrice(); // CMS проценты
+    this.addFullPrices(); // итоговые суммы с CMS
     this.showResult();
 
     setDisabledLeft(true);
@@ -143,10 +215,16 @@ const appData = {
   clearData: function () {
     this.screens = [];
     this.screenPrice = 0;
+
     this.servicePricesPercent = 0;
     this.servicePricesNumber = 0;
+
+    this.cmsPercentSum = 0;
+    this.cmsPrice = 0;
+
     this.fullPrice = 0;
     this.servicePercentPrice = 0;
+
     this.servicesPercent = {};
     this.servicesNumber = {};
   },
@@ -165,8 +243,11 @@ const appData = {
 
   showResult: function () {
     total.value = this.screenPrice;
+
+    //сюда сервисы + cms
     totalCountOther.value =
-      this.servicePricesPercent + this.servicePricesNumber;
+      this.servicePricesPercent + this.servicePricesNumber + this.cmsPrice;
+
     totalFullCount.value = this.fullPrice;
     totalCountRollback.value = this.servicePercentPrice;
   },
@@ -240,25 +321,56 @@ const appData = {
         this.screenPrice * (this.servicesPercent[key] / 100);
     }
 
+    totalCount.value = totalScreensCount;
+  },
+
+  //CMS price
+  addCmsPrice: function () {
+    // CMS учитываем только если cms-open включён
+    if (!cmsOpen || !cmsOpen.checked) {
+      this.cmsPercentSum = 0;
+      this.cmsPrice = 0;
+      return;
+    }
+
+    this.cmsPercentSum = getCmsPercentSum();
+    const base =
+      this.screenPrice + this.servicePricesPercent + this.servicePricesNumber;
+
+    this.cmsPrice = base * (this.cmsPercentSum / 100);
+  },
+
+  //итог
+  addFullPrices: function () {
     this.fullPrice =
-      this.screenPrice + this.servicePricesNumber + this.servicePricesPercent;
+      this.screenPrice +
+      this.servicePricesNumber +
+      this.servicePricesPercent +
+      this.cmsPrice;
 
     this.servicePercentPrice =
       this.fullPrice - this.fullPrice * (this.rollback / 100);
-
-    totalCount.value = totalScreensCount;
   },
 
   reset: function () {
     this.toggleButtons(false);
+    // убрать динамические экраны
     const screens = getScreens();
     screens.forEach((screen, i) => {
       if (i !== 0) screen.remove();
     });
+
+    // очистить поля/чекбоксы/селекты
     clearTextInputsLeft();
     clearSelectsLeft();
     clearCheckboxesLeft();
+    // CMS блок вернуть в исходное состояние
+    if (cmsOpen) cmsOpen.checked = false;
+    setCmsVariantsVisible(false);
+    setCmsOtherInputVisible(false);
+    // разблокировать
     setDisabledLeft(false);
+    // очистить результаты и данные
     clearTotals();
     this.clearData();
   },
